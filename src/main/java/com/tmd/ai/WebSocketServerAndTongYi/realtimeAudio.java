@@ -149,7 +149,13 @@ public class realtimeAudio {
             log.info("[接收消息] 获取音频数据: {}", message);
             log.info("数据的大小为{}", message.capacity());
             log.info("[接受消息的人{}", sid);
-            APIWebsocket client = apiClients.computeIfAbsent(sid, k -> apiWebsocketPool.getConnection());
+            APIWebsocket client = apiClients.computeIfAbsent(sid, k -> {
+                try {
+                    return apiWebsocketPool.getConnection();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            });
             byte[] array = message.array();
             if (isContainsStopFlag(array)) {
                 Map<String, Object> connect = client.connect();
