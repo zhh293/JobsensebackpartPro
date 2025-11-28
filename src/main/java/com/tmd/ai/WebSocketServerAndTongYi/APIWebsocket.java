@@ -391,4 +391,8 @@ public class APIWebsocket {
             return r;
         }
     }
+
+    public boolean isConnected() {
+        return session != null && session.isOpen();
+    }
 }

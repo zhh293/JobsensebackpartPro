@@ -10,9 +10,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 @Slf4j
@@ -20,19 +19,19 @@ public class APIWebsocketPool {
     @Autowired
     private APIWebsocketPoolConfig config;
 
-    private List<APIWebsocket> pool;
+    private BlockingQueue<APIWebsocket> pool;
     private ScheduledExecutorService cleanupScheduler;
 
-    private int activeConnections;
+    private final AtomicInteger activeConnections=new AtomicInteger(0);
 
     @PostConstruct
     public void createPool() {
         // 创建连接池
-        this.pool =new ArrayList<>(config.MAX_CONNECTIONS);
+        this.pool =new ArrayBlockingQueue<>(config.MAX_CONNECTIONS);
         //初始化连接池
         for (int i = 0; i < config.MAX_CONNECTIONS; i++) {
             APIWebsocket apiWebsocket = new APIWebsocket(APIWebsocket.chatClient);
-            pool.add(apiWebsocket);
+            pool.offer(apiWebsocket);
         }
         
         // 启动定时清理任务
@@ -50,41 +49,84 @@ public class APIWebsocketPool {
         log.debug("执行连接池清理任务，当前活跃连接数: {}", activeConnections);
     }
     
-    public APIWebsocket getConnection() {
-        if(!pool.isEmpty()){
-            APIWebsocket apiWebsocket = pool.remove(0);
-            activeConnections++;
-            return apiWebsocket;
+    public APIWebsocket getConnection() throws InterruptedException {
+        APIWebsocket connection = pool.poll();
+        if (connection != null && isConnectionValid(connection)) {
+            activeConnections.incrementAndGet(); // 用 AtomicInteger 保证原子性
+            return connection;
         }
-        if(activeConnections < config.MAX_CONNECTIONS){
-            APIWebsocket apiWebsocket = new APIWebsocket(APIWebsocket.chatClient);
-            activeConnections++;
-            System.out.println("创建新的连接");
-            return apiWebsocket;
+
+        // 2. 池中无可用连接，判断是否允许创建新连接（未达最大总连接数）
+        if (activeConnections.get() < config.MAX_TOTAL_CONNECTIONS) {
+            APIWebsocket newConn = new APIWebsocket(APIWebsocket.chatClient);
+            activeConnections.incrementAndGet();
+            log.debug("创建新连接，当前活跃连接数：{}", activeConnections.get());
+            return newConn;
         }
-        throw new RuntimeException("没有可用的连接");
+        // 3. 已达最大连接数，等待可用连接（直到超时）
+        connection = pool.poll(config.MAX_WAIT_TIME, TimeUnit.MILLISECONDS);
+        if (connection == null || !isConnectionValid(connection)) {
+            throw new RuntimeException("获取连接超时（" + config.MAX_WAIT_TIME + "ms），无可用连接");
+        }
+
+        activeConnections.incrementAndGet();
+        return connection;
     }
 
-    public void releaseConnection(APIWebsocket apiWebsocket) {
-        if (apiWebsocket != null) {
-            pool.add(apiWebsocket);
-            activeConnections--;
+    // 连接可用性检查（关键）
+    private boolean isConnectionValid(APIWebsocket connection) {
+        // 假设 APIWebsocket 有 isOpen() 方法判断连接状态
+        return connection != null && connection.isConnected();
+    }
+    public void releaseConnection(APIWebsocket conn) {
+        if (conn == null) return;
+
+        activeConnections.decrementAndGet();
+
+        // 连接无效：直接关闭
+        if (!isConnectionValid(conn)) {
+            closeConnection(conn);
+            return;
+        }
+
+        // 队列满时，关闭多余连接（避免超过核心池大小）
+        if (!pool.offer(conn)) {
+            closeConnection(conn);
+            log.debug("连接池已满，关闭多余空闲连接");
+        }
+    }
+    private void closeConnection(APIWebsocket conn) {
+        if (conn != null && conn.isConnected()) {
+            try {
+                conn.onClose(); // 假设 APIWebsocket 有 close() 方法
+            } catch (Exception e) {
+                log.error("关闭 WebSocket 连接失败", e);
+            }
         }
     }
 
     public void closePool() {
-        //销毁所有对象，清空所有数据
+        // 1. 关闭所有空闲连接
+        pool.forEach(this::closeConnection);
         pool.clear();
-        activeConnections = 0;
-        
-        // 关闭清理任务
-        if (cleanupScheduler != null && !cleanupScheduler.isShutdown()) {
-            cleanupScheduler.shutdown();
-        }
-        
-        log.info("连接池销毁完毕");
-    }
 
+        // 2. 重置计数器
+        activeConnections.set(0);
+
+        // 3. 关闭定时任务（优雅停机）
+        if (cleanupScheduler != null && !cleanupScheduler.isShutdown()) {
+            cleanupScheduler.shutdownNow();
+            try {
+                if (!cleanupScheduler.awaitTermination(10, TimeUnit.SECONDS)) {
+                    log.warn("定时任务未正常关闭");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        log.info("连接池已销毁，释放所有资源");
+    }
 
 }
 
