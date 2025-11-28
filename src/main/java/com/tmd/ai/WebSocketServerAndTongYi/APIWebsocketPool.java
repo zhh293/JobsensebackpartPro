@@ -76,7 +76,7 @@ public class APIWebsocketPool {
     // 连接可用性检查（关键）
     private boolean isConnectionValid(APIWebsocket connection) {
         // 假设 APIWebsocket 有 isOpen() 方法判断连接状态
-        return connection != null && connection.isConnected();
+        return connection != null && (!connection.isConnected());
     }
     public void releaseConnection(APIWebsocket conn) {
         if (conn == null) return;
