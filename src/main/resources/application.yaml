@@ -49,3 +49,11 @@ logging:
     com.tmd.ai: debug
 server:
   port: 8080
+
+# WebSocket连接池配置
+apiwebsocket:
+  pool:
+    max-connections: 20
+    max-idle-time: 300000
+    max-wait-time: 5000
+    max-total-connections: 30

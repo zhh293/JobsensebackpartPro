@@ -7,17 +7,15 @@ import jakarta.websocket.*;
 import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import com.tmd.ai.WebSocketServerAndTongYi.*;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
+import java.util.concurrent.*;
 
 /*约束
 接口调用方式限制：不支持前端直接调用API，需通过后端中转。*/
@@ -62,39 +60,51 @@ import java.util.concurrent.ConcurrentHashMap;
 @ServerEndpoint("/realtime/audio/websocket/{sid}")
 @Slf4j
 public class realtimeAudio {
-//服务端给客户端发消息
-//存放会话对象
+    //服务端给客户端发消息
+    //存放会话对象
     //建立一个APIWebsocket连接池，防止频繁的销毁和创建
+    @Autowired
+    private APIWebsocketPool apiWebsocketPool;
     //每次移除APIWebsocket对象，放回连接池
-    public static  final ConcurrentHashMap<String, Session> sessionMap = new ConcurrentHashMap<>();
-   // private static final Logger logger = Logger.getLogger(WebSocketServer.class.getName());
-  //  private static final String apikey="";
+    public static final ConcurrentHashMap<String, Session> sessionMap = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, APIWebsocket> apiClients = new ConcurrentHashMap<>();
+
+    // 心跳检测相关
+    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
+    private static final ConcurrentHashMap<String, Long> lastActivityMap = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, ScheduledFuture<?>> heartbeatFutures = new ConcurrentHashMap<>();
+    private static final long HEARTBEAT_INTERVAL = 30000; // 30秒心跳间隔
+    private static final long SESSION_TIMEOUT = 120000; // 2分钟超时
+
+    //心跳检测机制，对于迟迟不发消息的连接进行清理
     @OnOpen
-    public void onOpen(Session session, @PathParam("sid") String sid,@PathParam("remind") String remind) {
-        JSONObject jsonObject= JSON.parseObject( remind);
+    public void onOpen(Session session, @PathParam("sid") String sid, @PathParam("remind") String remind) {
+        JSONObject jsonObject = JSON.parseObject(remind);
         RunPythonWithConda runPythonWithConda = new RunPythonWithConda();
         runPythonWithConda.face();
         log.info("开始人脸识别");
-        if(jsonObject!=null){
+        if (jsonObject != null) {
             String string2 = jsonObject.getString("sampleRate");
             String string1 = jsonObject.getString("channel");
             String string = jsonObject.getString("bitsPerSample");
-            log.info("样本率{}",string2);
-            log.info("通道数{}",string1);
-            log.info("采样位数{}",string);
+            log.info("样本率{}", string2);
+            log.info("通道数{}", string1);
+            log.info("采样位数{}", string);
         }
         sessionMap.put(sid, session);
+        // 初始化心跳检测
+        lastActivityMap.put(sid, System.currentTimeMillis());
+        startHeartbeat(sid);
         log.info("[连接建立] 客户端: {} | 当前在线: {}", sid, sessionMap.size());
         sendToSpecificClient(sid);
     }
-    public void sendToSpecificClient(String  sid){
+
+    public void sendToSpecificClient(String sid) {
         Session session = sessionMap.get(sid);
         try {
             if (session.isOpen()) {
                 session.getBasicRemote().sendText("客户端连接成功，下面准备处理你传递的数据");
-            }
-            else {
+            } else {
                 log.error("客户端[{}]会话已关闭", sid);
                 sessionMap.remove(sid); // 清理无效会话
             }
@@ -102,13 +112,13 @@ public class realtimeAudio {
             throw new RuntimeException(e);
         }
     }
-    public static void sendToSpecificClient(String  sid,String message){
+
+    public static void sendToSpecificClient(String sid, String message) {
         Session session = sessionMap.get(sid);
         try {
             if (session.isOpen()) {
                 session.getBasicRemote().sendText(message);
-            }
-            else {
+            } else {
                 log.error("客户端[{}]会话已关闭", sid);
                 sessionMap.remove(sid); // 清理无效会话
             }
@@ -116,13 +126,13 @@ public class realtimeAudio {
             throw new RuntimeException(e);
         }
     }
-    public void sendToSpecificClient1(String  sid){
+
+    public void sendToSpecificClient1(String sid) {
         Session session = sessionMap.get(sid);
         try {
             if (session.isOpen()) {
                 session.getBasicRemote().sendText("您的数据已经传递给ai，敬请等待");
-            }
-            else {
+            } else {
                 log.error("客户端[{}]会话已关闭", sid);
                 sessionMap.remove(sid); // 清理无效会话
             }
@@ -130,31 +140,33 @@ public class realtimeAudio {
             throw new RuntimeException(e);
         }
     }
-    
+
     @OnMessage
-    public void onMessage(ByteBuffer  message, @PathParam("sid") String sid) throws InterruptedException {
+    public void onMessage(ByteBuffer message, @PathParam("sid") String sid) throws InterruptedException {
         try {
+            // 更新最后活动时间
+            lastActivityMap.put(sid, System.currentTimeMillis());
             log.info("[接收消息] 获取音频数据: {}", message);
             log.info("数据的大小为{}", message.capacity());
             log.info("[接受消息的人{}", sid);
-            APIWebsocket client = apiClients.computeIfAbsent(sid, k -> new APIWebsocket(APIWebsocket.chatClient));
+            APIWebsocket client = apiClients.computeIfAbsent(sid, k -> apiWebsocketPool.getConnection());
             byte[] array = message.array();
-            if(isContainsStopFlag(array)){
+            if (isContainsStopFlag(array)) {
                 Map<String, Object> connect = client.connect();
                 client.sendFinish();
                 String finalResp = client.awaitFinalResponse(10000);
-                if(finalResp != null && !finalResp.isEmpty()){
+                if (finalResp != null && !finalResp.isEmpty()) {
                     sendToSpecificClient(sid, finalResp);
                 }
                 return;
             }
             Map<String, Object> connect = client.connect();
-            Integer success = (Integer)  connect.get("success");
+            Integer success = (Integer) connect.get("success");
             if (success == 1) {
-                client.sendMessage(message,(Session)connect.get("session"));
+                client.sendMessage(message, (Session) connect.get("session"));
                 sendToSpecificClient1(sid);
                 String partial = client.awaitPartialResult(2000);
-                if(partial != null && !partial.isEmpty()){
+                if (partial != null && !partial.isEmpty()) {
                     sendToSpecificClient(sid, "AI识别结果：" + partial);
                 }
             }
@@ -169,37 +181,137 @@ public class realtimeAudio {
             return false;
         }
         // 停止标志为字节值-1，对应无符号值255
-        final byte STOP_FLAG = (byte)0xFF;
+        final byte STOP_FLAG = (byte) 0xFF;
         for (int i = 0; i < 16; i++) {
-            if(array[i]!=STOP_FLAG){
+            if (array[i] != STOP_FLAG) {
                 return false;
             }
         }
         return true;
     }
 
-    @OnClose public void onClose(Session session, @PathParam("sid") String sid) {
-        Session remove = sessionMap.remove(sid);
-        if (remove != null) {
-            log.info("[连接关闭] 客户端: {} | 当前在线: {}", sid, sessionMap.size());
-        }
+    @OnClose
+    public void onClose(Session session, @PathParam("sid") String sid) {
+        cleanupConnection(sid);
+        log.info("[连接关闭] 客户端: {} | 当前在线: {}", sid, sessionMap.size());
         log.info("[连接关闭] 剩余在线: {}", sessionMap.size());
-        APIWebsocket remove1 = apiClients.remove(sid);
     }
+
     @OnError
     public void onError(Throwable error) {
         log.error("[连接错误] 错误信息: {}", error.getMessage());
         log.error("发生错误,客户端与中转站之间发生错误");
     }
+
+    /**
+     * 启动心跳检测任务
+     *
+     * @param sid 会话ID
+     */
+    private void startHeartbeat(String sid) {
+        ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(() -> {
+            try {
+                checkConnection(sid);
+            } catch (Exception e) {
+                log.error("心跳检测异常: {}", e.getMessage(), e);
+            }
+        }, HEARTBEAT_INTERVAL, HEARTBEAT_INTERVAL, TimeUnit.MILLISECONDS);
+        heartbeatFutures.put(sid, future);
+    }
+
+    /**
+     * 检查连接状态
+     *
+     * @param sid 会话ID
+     */
+    private void checkConnection(String sid) {
+        Session session = sessionMap.get(sid);
+        if (session == null) {
+            // 会话已不存在，清理资源
+            cleanupConnection(sid);
+            return;
+        }
+
+        long lastActivity = lastActivityMap.getOrDefault(sid, System.currentTimeMillis());
+        long currentTime = System.currentTimeMillis();
+        long inactiveTime = currentTime - lastActivity;
+
+        // 如果超过超时时间，关闭连接
+        if (inactiveTime > SESSION_TIMEOUT) {
+            log.info("连接超时，关闭会话: {}", sid);
+            try {
+                if (session.isOpen()) {
+                    session.close(new CloseReason(CloseReason.CloseCodes.GOING_AWAY, "Session timeout"));
+                }
+            } catch (IOException e) {
+                log.error("关闭超时连接失败: {}", e.getMessage(), e);
+            }
+            cleanupConnection(sid);
+        } else {
+            // 发送心跳消息（可选）
+            try {
+                if (session.isOpen()) {
+                    session.getBasicRemote().sendText("{\"type\":\"heartbeat\",\"timestamp\":" + currentTime + "}");
+                }
+            } catch (IOException e) {
+                log.warn("发送心跳消息失败: {}", e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 清理连接资源
+     *
+     * @param sid 会话ID
+     */
+    private void cleanupConnection(String sid) {
+        Session remove = sessionMap.remove(sid);
+        APIWebsocket remove1 = apiClients.remove(sid);
+        lastActivityMap.remove(sid);
+
+        // 取消心跳任务
+        ScheduledFuture<?> future = heartbeatFutures.remove(sid);
+        if (future != null && !future.isCancelled()) {
+            future.cancel(true);
+        }
+
+        // 归还API连接到连接池
+        if (remove1 != null) {
+            apiWebsocketPool.releaseConnection(remove1);
+        }
+
+        if (remove != null) {
+            try {
+                if (remove.isOpen()) {
+                    remove.close();
+                }
+            } catch (IOException e) {
+                log.error("关闭WebSocket会话失败: {}", e.getMessage(), e);
+            }
+        }
+    }
+
+    /**
+     * 停止所有心跳检测任务
+     */
+    public static void shutdown() {
+        scheduler.shutdown();
+        try {
+            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                scheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            scheduler.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    // 添加getter方法供其他组件使用
+    public static int getOnlineCount() {
+        return sessionMap.size();
+    }
+    
+    public static boolean isSessionExists(String sid) {
+        return sessionMap.containsKey(sid);
+    }
 }
-
-
-
-
-
-
-
-
-
-
-

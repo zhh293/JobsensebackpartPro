@@ -15,10 +15,7 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.URI;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.HexFormat;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -55,6 +52,8 @@ public class APIWebsocket {
    private final Object finishLock = new Object();
    private String partialResult = "";
    private String finalResponse = "";
+
+
 
     @OnOpen
     public void onOpen(Session session, EndpointConfig config) throws DeploymentException, IOException {
