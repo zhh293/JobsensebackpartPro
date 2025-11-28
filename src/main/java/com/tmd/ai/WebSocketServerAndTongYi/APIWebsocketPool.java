@@ -1,6 +1,7 @@
 package com.tmd.ai.WebSocketServerAndTongYi;
 
 
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -24,6 +25,7 @@ public class APIWebsocketPool {
 
     private int activeConnections;
 
+    @PostConstruct
     public void createPool() {
         // 创建连接池
         this.pool =new ArrayList<>(config.MAX_CONNECTIONS);
