@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: agent-ai
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        model: deepseek-r1:8b
+    openai:
+      api-key: sk-6ba44564c1ab4c80b1e012a7fb89dd87
+      base-url: https://dashscope.aliyuncs.com/compatible-mode
+      chat:
+        options:
+          model: qwen-max-latest
+#    openai:
+#      api-key: LYFYgBPMyMcNWgqCtFBg:QRXZVfbBSTBxlZlkKDAU
+#      base-url: https://spark-api-open.xf-yun.com
+#      chat:
+#        options:
+#          model: x1
+      embedding:
+        options:
+          model: text-embedding-v3
+          dimensions: 1024
+#    xunfei:
+#      appid: 42a626ce
+#      api-key: 000eaa4ac949b2a3d2638b8a49e08c6e
+#      api-secret: YjM5ZGIwOTc2MDJmNWNhMTQwOWI2NDU2
+#      model: x1
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/jobsense
+    username: postgres
+    password: jinmuyan1314217
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
+
+mybatis:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 开启驼峰命名映射开关
+    map-underscore-to-camel-case: true
+
+logging:
+  level:
+    org.springframework.ai: debug
+    com.tmd.ai: debug
+server:
+  port: 8080
