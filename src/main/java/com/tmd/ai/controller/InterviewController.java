@@ -5,13 +5,14 @@ import com.tmd.ai.entity.vo.PDFVO;
 import com.tmd.ai.entity.vo.Result;
 import com.tmd.ai.repository.ChatHistoryRepository;
 import com.tmd.ai.repository.FileRepository;
-import com.tmd.ai.service.AI;
+//import com.tmd.ai.service.AI;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.ExtractedTextFormatter;
 import org.springframework.ai.reader.pdf.PagePdfDocumentReader;
 import org.springframework.ai.reader.pdf.config.PdfDocumentReaderConfig;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,6 +31,7 @@ public class InterviewController {
 
     private final ChatClient chatClient;
 
+    @Qualifier("redisChatHistoryRespository")
     private final ChatHistoryRepository chatHistoryRepository;
 
     private final FileRepository fileRepository;
@@ -54,14 +56,12 @@ public class InterviewController {
         // 1.保存会话ID
         chatHistoryRepository.save("interview", chatId);
         // 2.请求模型，取消流式，直接获取完整字符串
-//        return chatClient.prompt()
-//                .system(SystemConstants.PDF_SYSTEM_PROMPT)
-//                .user(prompt)
-//                .advisors(a -> a.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId))
-//                .call()
-//                .content();
-        AI ai = new AI();
-        String input = ai.chat(prompt, chatId,PDF_SYSTEM_PROMPT);
+        String input = chatClient.prompt()
+                .system(PDF_SYSTEM_PROMPT)
+                .user(prompt)
+                .advisors(a -> a.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId))
+                .call()
+                .content();
         // 去掉开头的 ```json
         if (input.startsWith("```json")) {
             input = input.substring("```json".length());

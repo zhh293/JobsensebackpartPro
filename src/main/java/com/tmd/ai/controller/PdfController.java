@@ -11,6 +11,7 @@ import org.springframework.ai.reader.ExtractedTextFormatter;
 import org.springframework.ai.reader.pdf.PagePdfDocumentReader;
 import org.springframework.ai.reader.pdf.config.PdfDocumentReaderConfig;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -38,6 +39,7 @@ public class PdfController {
 
     private final ChatClient pdfChatClient;
 
+    @Qualifier("redisChatHistoryRespository")
     private final ChatHistoryRepository chatHistoryRepository;
 
     @RequestMapping(value = "/chat", produces = "text/html;charset=utf-8")

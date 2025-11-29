@@ -27,6 +27,7 @@ public class LocalPdfFileRepository implements FileRepository {
     // 会话id 与 文件名的对应关系，方便查询会话历史时重新加载文件
     private final Properties chatFiles = new Properties();
 
+    //之后最好使用阿里云的oss存储
     @Override
     public boolean save(String chatId, Resource resource) {
         // 1.保存到本地磁盘

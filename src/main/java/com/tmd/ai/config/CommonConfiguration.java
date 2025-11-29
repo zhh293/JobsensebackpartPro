@@ -12,6 +12,7 @@ import org.springframework.ai.openai.OpenAiEmbeddingModel;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -30,7 +31,7 @@ public class CommonConfiguration {
     }
 
     @Bean("chatClient")
-    public ChatClient chatClient(OpenAiChatModel model,ChatMemory chatMemory){
+    public ChatClient chatClient(OpenAiChatModel model,@Qualifier("redisChatMemory") ChatMemory chatMemory){
         return ChatClient
                 .builder(model)
                 .defaultSystem(SystemConstants.CHAT_SYSTEM_PROMPT)
@@ -42,7 +43,7 @@ public class CommonConfiguration {
                 .build();
     }
     @Bean("pdfChatClientModel")
-    public ChatClient PDFModel(OpenAiChatModel model, ChatMemory chatMemory){
+    public ChatClient PDFModel(OpenAiChatModel model,@Qualifier("redisChatMemory") ChatMemory chatMemory){
         return ChatClient
                 .builder(model)
                 .defaultSystem(SystemConstants.PDF_SYSTEM_PROMPT)
@@ -54,7 +55,7 @@ public class CommonConfiguration {
                 .build();
     }
     @Bean("pdfChatClient")
-    public ChatClient pdfChatClient(OpenAiChatModel model, ChatMemory chatMemory, VectorStore vectorStore) {
+    public ChatClient pdfChatClient(OpenAiChatModel model,@Qualifier("redisChatMemory") ChatMemory chatMemory, VectorStore vectorStore) {
         return ChatClient
                 .builder(model)
 //                .defaultSystem(SystemConstants.PDF_SYSTEM_PROMPT)

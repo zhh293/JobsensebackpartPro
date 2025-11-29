@@ -1,5 +1,6 @@
 package com.tmd.ai.service;
 
+/*
 import com.alibaba.fastjson.JSONObject;
 import com.tmd.ai.WebSocketServer.ChatWebSocketClient;
 import io.swagger.annotations.Api;
@@ -89,4 +90,4 @@ public class AI {
         return "请求失败";
     }
 
-}
+}*/
