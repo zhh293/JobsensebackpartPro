@@ -1,5 +1,6 @@
 package com.tmd.ai.repository;
 
+/*
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -29,3 +30,4 @@ public class InMemoryChatHistoryRespository implements ChatHistoryRepository{
         return chatHistory.getOrDefault(type, List.of());//返回会话id和
     }
 }
+*/

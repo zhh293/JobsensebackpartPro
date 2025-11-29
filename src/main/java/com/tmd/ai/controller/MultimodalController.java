@@ -26,7 +26,7 @@ public class MultimodalController {
     @Value("${spring.ai.openai.api-key}")
     private String openaiApiKey;
 
-    @Value("${spring.ai.openai.base-url:https://api.openai.com}")
+    @Value("${spring.ai.openai.base-url}")
     private String openaiBaseUrl;
 
     private final RestTemplate restTemplate = new RestTemplate();

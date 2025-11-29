@@ -21,11 +21,6 @@ import org.springframework.context.annotation.Configuration;
 public class CommonConfiguration {
 
     @Bean
-    public ChatMemory chatMemory() {
-        return new InMemoryChatMemory();
-    }
-
-    @Bean
     public VectorStore vectorStore(OpenAiEmbeddingModel embeddingModel) {
         return SimpleVectorStore.builder(embeddingModel).build();
     }
