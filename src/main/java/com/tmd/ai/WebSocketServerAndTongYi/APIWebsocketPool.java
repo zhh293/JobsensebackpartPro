@@ -96,7 +96,7 @@ public class APIWebsocketPool {
         }
     }
     private void closeConnection(APIWebsocket conn) {
-        if (conn != null && conn.isConnected()) {
+        if (conn != null &&! conn.isConnected()) {
             try {
                 conn.onClose(); // 假设 APIWebsocket 有 close() 方法
             } catch (Exception e) {
