@@ -191,6 +191,8 @@ public class MultimodalController {
     private boolean isTextContentAllowed(String text) {
         try {
             // 构建审核选项
+            // 调用OpenAI的"text-moderation-latest"模型进行审核
+//            这是OpenAI官方训练好的模型，专门用于检测文本中的有害内容
             OpenAiModerationOptions options = OpenAiModerationOptions.builder()
                     .model(OpenAiModerationApi.DEFAULT_MODERATION_MODEL)
                     .build();
