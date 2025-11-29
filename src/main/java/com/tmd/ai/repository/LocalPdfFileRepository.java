@@ -33,7 +33,7 @@ public class LocalPdfFileRepository implements FileRepository {
     // 会话id 与 文件名的对应关系，方便查询会话历史时重新加载文件
     private final Properties chatFiles = new Properties();
 
-    // 定义统一的文件存储目录
+    // 定义统一的文件存储目录，使用相对路径而不是绝对路径
     private static final String UPLOAD_DIR = "uploads/pdf/";
     
     // Redis中存储chatId到filename映射的key前缀
@@ -112,6 +112,7 @@ public class LocalPdfFileRepository implements FileRepository {
     @PreDestroy
     private void persistent() {
         // 不再需要保存Properties到文件，因为现在使用Redis存储
+
         SimpleVectorStore simpleVectorStore = (SimpleVectorStore) vectorStore;
         simpleVectorStore.save(new File("chat-pdf.json"));
     }

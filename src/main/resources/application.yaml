@@ -12,6 +12,19 @@ spring:
       chat:
         options:
           model: qwen-max-latest
+      # 音频转录配置
+      audio:
+        transcription:
+          options:
+            model: whisper-1
+            language: zh
+            response-format: json
+        # 文本转语音配置
+        speech:
+          options:
+            model: tts-1
+            voice: alloy
+            response-format: mp3
 #    openai:
 #      api-key: LYFYgBPMyMcNWgqCtFBg:QRXZVfbBSTBxlZlkKDAU
 #      base-url: https://spark-api-open.xf-yun.com
