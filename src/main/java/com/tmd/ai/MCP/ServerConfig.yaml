@@ -1,0 +1,21 @@
+spring:
+  output:
+    ansi:
+      enabled: never
+  application:
+    name: ai-springboot-mcp-server
+  main:
+    banner-mode: off
+  ai:
+    mcp:
+      server:
+        name: ai-springboot-mcp-server
+        version: 0.0.1
+
+
+# 服务端配置
+logging:
+  level:
+    root: OFF  # 关闭所有日志输出到控制台
+  file:
+    name: server.log  # 将日志重定向到文件
