@@ -2,6 +2,7 @@ package com.tmd.ai.controller;
 
 import com.tmd.ai.entity.vo.MessageVO;
 import com.tmd.ai.repository.ChatHistoryRepository;
+import com.tmd.ai.service.ModerationService;
 import com.tmd.ai.最新的聊天API.RedisChatMemory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
@@ -22,6 +23,7 @@ import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvis
 public class ChatController {
 
     private final ChatClient chatClient;
+    private final ModerationService moderationService;
 
     @Qualifier("redisChatHistoryRespository")
     private final ChatHistoryRepository chatHistoryRepository;
@@ -30,9 +32,14 @@ public class ChatController {
 
     @RequestMapping(value = "/chat", produces = "text/html;charset=utf-8")
     public String chat(String prompt, String chatId){
-        //1.保存会话ID
+        //1. 检查输入内容是否合规
+        if (!moderationService.isTextContentAllowed(prompt)) {
+            return "输入内容不符合规范，无法处理";
+        }
+        
+        //2.保存会话ID
         chatHistoryRepository.save("chat",chatId);
-        //2.请求模型
+        //3.请求模型
         return chatClient.prompt()
                 .user(prompt)
                 .advisors(a -> a.param(CHAT_MEMORY_CONVERSATION_ID_KEY,chatId))

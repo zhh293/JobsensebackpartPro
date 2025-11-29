@@ -19,12 +19,20 @@ spring:
             model: whisper-1
             language: zh
             response-format: json
-        # 文本转语音配置
-        speech:
-          options:
-            model: tts-1
-            voice: alloy
-            response-format: mp3
+            temperature: 0
+      # 文本转语音配置
+      speech:
+        options:
+          model: tts-1
+          voice: alloy
+          response-format: mp3
+      # 图像生成配置
+      image:
+        options:
+          model: dall-e-3
+          size: 1024x1024
+          quality: standard
+          n: 1
 #    openai:
 #      api-key: LYFYgBPMyMcNWgqCtFBg:QRXZVfbBSTBxlZlkKDAU
 #      base-url: https://spark-api-open.xf-yun.com
@@ -40,6 +48,22 @@ spring:
 #      api-key: 000eaa4ac949b2a3d2638b8a49e08c6e
 #      api-secret: YjM5ZGIwOTc2MDJmNWNhMTQwOWI2NDU2
 #      model: x1
+    # MCP客户端配置
+    mcp:
+      client:
+        enabled: true
+        name: jobsense-mcp-client
+        version: 1.0.0
+        request-timeout: 30s
+        type: SYNC
+        stdio:
+          connections:
+            filesystem:
+              command: npx
+              args:
+                - "-y"
+                - "@modelcontextprotocol/server-filesystem"
+                - "uploads/"
   datasource:
     driver-class-name: org.postgresql.Driver
     url: jdbc:postgresql://localhost:5432/jobsense
