@@ -40,29 +40,29 @@ public class MultimodalController {
     // 注入OpenAI审核模型
     private final OpenAiModerationModel openAiModerationModel;
 
+    private final OpenAiImageModel openAiImageModelCustom;
+
 
 
     /**
      * 根据文本生成图像 - 基础版本
      *
-     * @param prompt 图像描述文本
+     * @param msg 图像描述文本
      * @return 生成的图像URL列表
      */
     @PostMapping("/image")
-    public ResponseEntity<ImageResponse> generateImage(@RequestBody String prompt) {
-        try {
-            // 检查输入内容是否合规
-            if (!isTextContentAllowed(prompt)) {
-                return ResponseEntity.badRequest().build();
-            }
-            
-            ImagePrompt imagePrompt = new ImagePrompt(prompt);
-            ImageResponse response = openAiImageModel.call(imagePrompt);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("图像生成失败", e);
-            return ResponseEntity.internalServerError().build();
-        }
+    public String imageGen(@RequestParam(value = "msg", defaultValue = "画一只小猫") String msg,
+                           @RequestParam(value = "useCustomModel", required = false, defaultValue = "false") boolean useCustomModel){
+
+        //useCustomModel 为true时，使用自定义配置
+        OpenAiImageModel imageModel = useCustomModel ? openAiImageModelCustom : openAiImageModel;
+
+        ImageOptions options = ImageOptionsBuilder.builder().model("dall-e-3").height(1024).width(1024).build();
+        ImagePrompt imagePrompt = new ImagePrompt(msg, options);
+        ImageResponse response = imageModel.call(imagePrompt);
+        String imageUrl = response.getResult().getOutput().getUrl();
+//        logger.info("imageUrl:{}",imageUrl);
+        return "<html><body><img src=\"" + imageUrl + "\" alt=\"Generated Image\" /></body></html>";
     }
 
     /**
@@ -112,6 +112,12 @@ public class MultimodalController {
      */
     @PostMapping("/image/interview-scene")
     public ResponseEntity<ImageResponse> generateInterviewScene(@RequestBody Map<String, Object> request) {
+        /*OpenAiImageModel imageModel = useCustomModel ? openAiImageModelCustom : openAiImageModel;
+
+        ImageOptions options = ImageOptionsBuilder.builder().model("dall-e-3").height(1024).width(1024).build();
+        ImagePrompt imagePrompt = new ImagePrompt(msg, options);
+        ImageResponse response = imageModel.call(imagePrompt);
+        String imageUrl = response.getResult().getOutput().getUrl();*/
         try {
             String jobTitle = (String) request.getOrDefault("jobTitle", "软件工程师");
             String experienceLevel = (String) request.getOrDefault("experienceLevel", "中级");
@@ -123,15 +129,16 @@ public class MultimodalController {
                 experienceLevel, jobTitle, interviewType);
                 
             // 检查输入内容是否合规
-            if (!isTextContentAllowed(prompt)) {
-                return ResponseEntity.badRequest().build();
-            }
+//            if (!isTextContentAllowed(prompt)) {
+//                return ResponseEntity.badRequest().build();
+//            }
 
             ImagePrompt imagePrompt = new ImagePrompt(
                 prompt,
-                OpenAiImageOptions.builder()
-                    .model(OpenAiImageApi.DEFAULT_IMAGE_MODEL)
-                    .quality("hd")
+                ImageOptionsBuilder.builder()
+                    .model("dall-e-3")
+                        .height(1024)
+                        .width(1024)
                     .style("vivid")
                     .build()
             );
@@ -161,19 +168,20 @@ public class MultimodalController {
                 candidateName);
                 
             // 检查输入内容是否合规
-            if (!isTextContentAllowed(prompt)) {
-                return ResponseEntity.badRequest().build();
-            }
+//            if (!isTextContentAllowed(prompt)) {
+//                return ResponseEntity.badRequest().build();
+//            }
 
             ImagePrompt imagePrompt = new ImagePrompt(
-                prompt,
-                OpenAiImageOptions.builder()
-                    .model(OpenAiImageApi.DEFAULT_IMAGE_MODEL)
-                    .quality("hd")
-                    .style("vivid")
-                    .build()
+                    prompt,
+                    ImageOptionsBuilder.builder()
+                            .model("dall-e-3")
+                            .height(1024)
+                            .width(1024)
+                            .style("vivid")
+                            .build()
             );
-            
+
             ImageResponse response = openAiImageModel.call(imagePrompt);
             return ResponseEntity.ok(response);
         } catch (Exception e) {

@@ -111,6 +111,7 @@ public class APIWebsocket {
                         if(count==5){
                             session.close();
                             log.info("任务结束，session已经关闭");
+                            return;
                         }
                         //这里发完之后需要复用连接
                             string=UUID.randomUUID().toString();

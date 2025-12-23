@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.DefaultResponseErrorHandler;
@@ -92,29 +93,14 @@ public class CommonConfiguration {
         );
     }*/
     @Bean
-    public OpenAiImageApi openAiImageApi(
-            RestClient.Builder restClientBuilder,
-            ResponseErrorHandler responseErrorHandler,
-            MultiValueMap<String, String> openAiHeaders
-    ) {
-
-        // 对应截图里的构造函数：String baseUrl, String apiKey, RestClient.Builder, ResponseErrorHandler
-        return new OpenAiImageApi(
-                openAiBaseUrl,
-                openAiApiKey,
-                openAiHeaders,
-                restClientBuilder,
-                responseErrorHandler
-        );
+    public OpenAiImageModel openAiImageModelCustom(@Value("${spring.ai.openai.api-key}") String apiKey, @Value("${spring.ai.openai.base-url}") String baseUrl) {
+        //设置超时时间为5分钟
+        int timeOut = 5*60*1000;
+        HttpComponentsClientHttpRequestFactory clientHttpRequestFactory = new HttpComponentsClientHttpRequestFactory();
+        clientHttpRequestFactory.setReadTimeout(timeOut);
+        return new OpenAiImageModel(new OpenAiImageApi(baseUrl, apiKey, RestClient.builder().requestFactory(clientHttpRequestFactory)));
     }
 
-    /**
-     * 用 OpenAiImageApi 构造 OpenAiImageModel（和你原来的逻辑一致）
-     */
-    @Bean
-    public OpenAiImageModel openAiImageModel(OpenAiImageApi openAiImageApi) {
-        return new OpenAiImageModel(openAiImageApi);
-    }
 
     /**
      * 创建 OpenAiModerationApi Bean
